@@ -1,0 +1,395 @@
+{
+  "about": "Test cases every TicketRackr support SDK passes. See README.md. Each frameUrl case gives the link and options, and the expected address: its origin and path, fragment and query parameters (compare them as a map; encodings differ between platforms).",
+  "frameUrl": [
+    {
+      "name": "everything",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {
+        "closable": true,
+        "edges": true,
+        "load": 2,
+        "language": "es",
+        "requestType": "report_problem",
+        "subject": "Order 42",
+        "fields": {
+          "order_number": "42",
+          "Bad Key": "x"
+        }
+      },
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed",
+          "closable": "1",
+          "edges": "1",
+          "load": "2",
+          "lang": "es",
+          "type": "report_problem",
+          "subject": "Order 42",
+          "f.order_number": "42"
+        }
+      }
+    },
+    {
+      "name": "nothing extra",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {},
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed"
+        }
+      }
+    },
+    {
+      "name": "development on this machine",
+      "link": "http://localhost:3219/support#code=x",
+      "options": {
+        "closable": true
+      },
+      "expect": {
+        "base": "http://localhost:3219/support",
+        "fragment": "code=x",
+        "params": {
+          "view": "embed",
+          "closable": "1"
+        }
+      }
+    },
+    {
+      "name": "development by address",
+      "link": "http://127.0.0.1:3219/support#code=y",
+      "options": {},
+      "expect": {
+        "base": "http://127.0.0.1:3219/support",
+        "fragment": "code=y",
+        "params": {
+          "view": "embed"
+        }
+      }
+    },
+    {
+      "name": "spaces and symbols survive",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {
+        "subject": "Refund & receipt #7",
+        "fields": {
+          "note": "a b/c?d=e"
+        }
+      },
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed",
+          "subject": "Refund & receipt #7",
+          "f.note": "a b/c?d=e"
+        }
+      }
+    },
+    {
+      "name": "a field is cut to 500 characters",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {
+        "fields": {
+          "details": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed",
+          "f.details": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      }
+    },
+    {
+      "name": "field keys must be lowercase words",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {
+        "fields": {
+          "Order": "1",
+          "1st": "2",
+          "ok_2": "3",
+          "a-b": "4"
+        }
+      },
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed",
+          "f.ok_2": "3"
+        }
+      }
+    }
+  ],
+  "invalidLinks": [
+    "http://ticketrackr.com/support#code=x",
+    "javascript:alert(1)//support#code=x",
+    "https://ticketrackr.com/help/acme#code=x",
+    "https://ticketrackr.com/support",
+    "https://ticketrackr.com/support?code=x",
+    "ftp://localhost/support#code=x",
+    "",
+    "not a link"
+  ],
+  "events": [
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"ready\"}",
+      "expect": {
+        "event": "ready"
+      }
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"close\"}",
+      "expect": {
+        "event": "close"
+      }
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"session-ended\"}",
+      "expect": {
+        "event": "session-ended"
+      }
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\", \"count\": 3}",
+      "expect": {
+        "event": "unread",
+        "count": 3
+      }
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\", \"count\": 0}",
+      "expect": {
+        "event": "unread",
+        "count": 0
+      }
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"ready\", \"extra\": true}",
+      "expect": {
+        "event": "ready"
+      }
+    },
+    {
+      "data": "nope",
+      "expect": null
+    },
+    {
+      "data": "{",
+      "expect": null
+    },
+    {
+      "data": "null",
+      "expect": null
+    },
+    {
+      "data": "[]",
+      "expect": null
+    },
+    {
+      "data": "{\"event\": \"ready\"}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"other\", \"event\": \"ready\"}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"steal\"}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\"}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\", \"count\": -1}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\", \"count\": \"2\"}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\", \"count\": 1.5}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\", \"count\": true}",
+      "expect": null
+    }
+  ],
+  "origins": [
+    {
+      "url": "https://ticketrackr.com/support?view=embed",
+      "origin": "https://ticketrackr.com",
+      "expect": true
+    },
+    {
+      "url": "https://ticketrackr.com",
+      "origin": "https://ticketrackr.com",
+      "expect": true
+    },
+    {
+      "url": "https://ticketrackr.com/",
+      "origin": "https://ticketrackr.com",
+      "expect": true
+    },
+    {
+      "url": "HTTPS://TicketRackr.com/support",
+      "origin": "https://ticketrackr.com",
+      "expect": true
+    },
+    {
+      "url": "https://ticketrackr.com:443/support",
+      "origin": "https://ticketrackr.com",
+      "expect": true
+    },
+    {
+      "url": "http://localhost:3219/support",
+      "origin": "http://localhost:3219",
+      "expect": true
+    },
+    {
+      "url": "http://localhost:3220/support",
+      "origin": "http://localhost:3219",
+      "expect": false
+    },
+    {
+      "url": "https://ticketrackr.com.example.net",
+      "origin": "https://ticketrackr.com",
+      "expect": false
+    },
+    {
+      "url": "http://ticketrackr.com",
+      "origin": "https://ticketrackr.com",
+      "expect": false
+    },
+    {
+      "url": "https://evil.example/https://ticketrackr.com",
+      "origin": "https://ticketrackr.com",
+      "expect": false
+    },
+    {
+      "url": "about:blank",
+      "origin": "https://ticketrackr.com",
+      "expect": false
+    },
+    {
+      "url": "",
+      "origin": "https://ticketrackr.com",
+      "expect": false
+    }
+  ],
+  "destinations": [
+    {
+      "url": "https://ticketrackr.com/support?view=embed&lang=es",
+      "origin": "https://ticketrackr.com",
+      "expect": "support"
+    },
+    {
+      "url": "https://ticketrackr.com/support",
+      "origin": "https://ticketrackr.com",
+      "expect": "support"
+    },
+    {
+      "url": "https://ticketrackr.com/api/support/tickets/ticket_1/attachments/file-2/download",
+      "origin": "https://ticketrackr.com",
+      "expect": "file"
+    },
+    {
+      "url": "https://ticketrackr.com/api/support/tickets/ticket_1/attachments/file-2/download?file=sealed.abc",
+      "origin": "https://ticketrackr.com",
+      "expect": "file"
+    },
+    {
+      "url": "https://ticketrackr.com/api/support/tickets/ticket_1",
+      "origin": "https://ticketrackr.com",
+      "expect": "page"
+    },
+    {
+      "url": "https://ticketrackr.com/help/acme/status?lang=en",
+      "origin": "https://ticketrackr.com",
+      "expect": "page"
+    },
+    {
+      "url": "https://ticketrackr.com/support/extra",
+      "origin": "https://ticketrackr.com",
+      "expect": "page"
+    },
+    {
+      "url": "https://ticketrackr.com.example.net/support",
+      "origin": "https://ticketrackr.com",
+      "expect": "outside"
+    },
+    {
+      "url": "http://ticketrackr.com/support",
+      "origin": "https://ticketrackr.com",
+      "expect": "outside"
+    },
+    {
+      "url": "https://help.acme.example/articles/1",
+      "origin": "https://ticketrackr.com",
+      "expect": "outside"
+    },
+    {
+      "url": "mailto:help@acme.example",
+      "origin": "https://ticketrackr.com",
+      "expect": "outside"
+    },
+    {
+      "url": "tel:+15551234567",
+      "origin": "https://ticketrackr.com",
+      "expect": "outside"
+    },
+    {
+      "url": "not a link",
+      "origin": "https://ticketrackr.com",
+      "expect": "outside"
+    }
+  ],
+  "reconnect": {
+    "windowMs": 30000,
+    "limit": 2,
+    "calls": [
+      {
+        "at": 0,
+        "expect": true
+      },
+      {
+        "at": 1000,
+        "expect": true
+      },
+      {
+        "at": 2000,
+        "expect": false
+      },
+      {
+        "at": 29999,
+        "expect": false
+      },
+      {
+        "at": 31001,
+        "expect": true
+      },
+      {
+        "at": 31002,
+        "expect": true
+      },
+      {
+        "at": 31003,
+        "expect": false
+      },
+      {
+        "at": 62000,
+        "expect": true
+      }
+    ]
+  }
+}
