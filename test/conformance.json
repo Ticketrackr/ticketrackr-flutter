@@ -125,6 +125,49 @@
           "f.ok_2": "3"
         }
       }
+    },
+    {
+      "name": "a request to open",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {
+        "ticket": "cmg8x2k1a0001qz7"
+      },
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed",
+          "ticket": "cmg8x2k1a0001qz7"
+        }
+      }
+    },
+    {
+      "name": "a request id that isn't one is dropped",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {
+        "ticket": "../tickets?all=1"
+      },
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed"
+        }
+      }
+    },
+    {
+      "name": "a request id is at most 128 characters",
+      "link": "https://ticketrackr.com/support#code=abc123",
+      "options": {
+        "ticket": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "expect": {
+        "base": "https://ticketrackr.com/support",
+        "fragment": "code=abc123",
+        "params": {
+          "view": "embed"
+        }
+      }
     }
   ],
   "invalidLinks": [
@@ -222,6 +265,66 @@
     },
     {
       "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread\", \"count\": true}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\", \"expiresAt\": 1793534400000}",
+      "expect": {
+        "event": "unread-token",
+        "token": "trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        "expiresAt": 1793534400000
+      }
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\", \"expiresAt\": 1793534400000, \"extra\": true}",
+      "expect": {
+        "event": "unread-token",
+        "token": "trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        "expiresAt": 1793534400000
+      }
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"expiresAt\": 1793534400000}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_portal_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\", \"expiresAt\": 1793534400000}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abc\", \"expiresAt\": 1793534400000}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOP.\", \"expiresAt\": 1793534400000}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQx\", \"expiresAt\": 1793534400000}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": 42, \"expiresAt\": 1793534400000}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\"}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\", \"expiresAt\": \"2026-11-01T12:00:00.000Z\"}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\", \"expiresAt\": 0}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\", \"expiresAt\": -5}",
+      "expect": null
+    },
+    {
+      "data": "{\"source\": \"ticketrackr-support\", \"event\": \"unread-token\", \"token\": \"trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ\", \"expiresAt\": 1.5}",
       "expect": null
     }
   ],
@@ -389,6 +492,169 @@
       {
         "at": 62000,
         "expect": true
+      }
+    ]
+  },
+  "unread": {
+    "about": "Section 7. requests: the address and Authorization header an SDK asks with, from the stored origin and token. answers: what the SDK does with each answer: show the count, forget the token, or keep the badge as it was. guard: every automatic check shares one guard, at most one per intervalMs (the first always). expiry: whether a stored token is still used (now < expiresAt, milliseconds since 1970).",
+    "requests": [
+      {
+        "origin": "https://ticketrackr.com",
+        "token": "trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        "expect": {
+          "url": "https://ticketrackr.com/api/support/unread",
+          "authorization": "Bearer trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
+        }
+      },
+      {
+        "origin": "http://localhost:3219",
+        "token": "trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ",
+        "expect": {
+          "url": "http://localhost:3219/api/support/unread",
+          "authorization": "Bearer trk_unread_abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQ"
+        }
+      }
+    ],
+    "answers": [
+      {
+        "status": 200,
+        "body": "{\"unread\": 2}",
+        "expect": {
+          "result": "count",
+          "count": 2
+        }
+      },
+      {
+        "status": 200,
+        "body": "{\"unread\": 0}",
+        "expect": {
+          "result": "count",
+          "count": 0
+        }
+      },
+      {
+        "status": 200,
+        "body": "{\"unread\": 3, \"extra\": true}",
+        "expect": {
+          "result": "count",
+          "count": 3
+        }
+      },
+      {
+        "status": 200,
+        "body": "{\"unread\": -1}",
+        "expect": {
+          "result": "keep"
+        }
+      },
+      {
+        "status": 200,
+        "body": "{\"unread\": 1.5}",
+        "expect": {
+          "result": "keep"
+        }
+      },
+      {
+        "status": 200,
+        "body": "{\"unread\": \"2\"}",
+        "expect": {
+          "result": "keep"
+        }
+      },
+      {
+        "status": 200,
+        "body": "{}",
+        "expect": {
+          "result": "keep"
+        }
+      },
+      {
+        "status": 200,
+        "body": "nope",
+        "expect": {
+          "result": "keep"
+        }
+      },
+      {
+        "status": 401,
+        "body": "{\"message\": \"Open support again from your application.\"}",
+        "expect": {
+          "result": "forget"
+        }
+      },
+      {
+        "status": 403,
+        "body": "{}",
+        "expect": {
+          "result": "forget"
+        }
+      },
+      {
+        "status": 429,
+        "body": "{}",
+        "expect": {
+          "result": "keep"
+        }
+      },
+      {
+        "status": 500,
+        "body": "{\"unread\": 2}",
+        "expect": {
+          "result": "keep"
+        }
+      },
+      {
+        "status": 503,
+        "body": "{}",
+        "expect": {
+          "result": "keep"
+        }
+      }
+    ],
+    "guard": {
+      "intervalMs": 60000,
+      "calls": [
+        {
+          "at": 0,
+          "expect": true
+        },
+        {
+          "at": 30000,
+          "expect": false
+        },
+        {
+          "at": 59999,
+          "expect": false
+        },
+        {
+          "at": 60000,
+          "expect": true
+        },
+        {
+          "at": 60001,
+          "expect": false
+        },
+        {
+          "at": 200000,
+          "expect": true
+        }
+      ]
+    },
+    "expiry": [
+      {
+        "expiresAt": 2000,
+        "now": 1999,
+        "expect": true
+      },
+      {
+        "expiresAt": 2000,
+        "now": 2000,
+        "expect": false
+      },
+      {
+        "expiresAt": 2000,
+        "now": 5000,
+        "expect": false
       }
     ]
   }

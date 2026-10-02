@@ -4,3 +4,4 @@ library;
 
 export 'src/protocol.dart' show SupportLinkException, SupportOptions;
 export 'src/support_widget.dart' show GetSupportLink, SupportButton, TicketRackrSupport, TicketRackrSupportIOS, showTicketRackrSupport;
+export 'src/unread_badge.dart' show ticketRackrSignOut, ticketRackrUnreadCount;

@@ -39,9 +39,10 @@ The link, with these query parameters added (a later value replaces an earlier o
 | `type` | a request type was chosen | Opens the form for that request type (its key). |
 | `subject` | given | Fills in the request's subject. |
 | `f.<key>` | for each field given | Fills in a field. Keys match `^[a-z][a-z0-9_]{0,63}$` (others are dropped); values are cut to 500 characters. |
+| `ticket` | a request was given | Opens that request, by its id: `ticket.id` in the `ticket.created` and `ticket.message.created` webhooks, so the app, or a push notification it sends, can open the exact conversation. Ids match `^[A-Za-z0-9_-]{1,128}$` (others are dropped). Only the customer's own requests open: for any other id, support shows the customer's requests and says it couldn't open that one. The page opens the request instead of a form, so `type`, `subject` and `f.<key>` do nothing next to it. |
 
 The fragment (`#code=…`) is kept as it is. The page redeems the code, then removes it from its address, keeping
-`view`, `closable`, `edges`, `lang` and `page`.
+`view`, `closable`, `edges`, `lang`, `page` and `ticket`.
 
 ## 3. Events from the page
 
@@ -50,16 +51,19 @@ The page sends events, never customer data, as a JSON string:
 ```json
 { "source": "ticketrackr-support", "event": "ready" }
 { "source": "ticketrackr-support", "event": "unread", "count": 2 }
+{ "source": "ticketrackr-support", "event": "unread-token", "token": "trk_unread_…", "expiresAt": 1793534400000 }
 ```
 
 | Event | Meaning | What the SDK does |
 | --- | --- | --- |
 | `ready` | Support has loaded and signed in. | Calls the app's `onReady`. |
 | `unread` | The customer's unread replies (a non-negative integer `count`), whenever it changes. | Calls `onUnreadChange(count)`; the Help button shows a badge. |
+| `unread-token` | A token for the Help button's badge while support is closed (section 7): `token` matches `^trk_unread_[A-Za-z0-9_-]{43}$`, `expiresAt` is a positive integer, milliseconds since 1970. | Keeps it with the support page's origin, replacing any earlier one. |
 | `close` | The customer pressed Close. | Calls `onClose`, or closes the sheet the SDK showed. |
 | `session-ended` | The session expired or was revoked. | Gets a new link and loads it, at most twice in 30 seconds; after that it shows "Try again". |
 
-Anything else (another `source`, another event, an `unread` without a valid count, invalid JSON) is ignored.
+Anything else (another `source`, another event, an `unread` without a valid count, an `unread-token` without a valid
+token and expiry, invalid JSON) is ignored.
 
 The page posts to whichever of these exists, so each SDK provides one:
 
@@ -101,3 +105,36 @@ it, because Android's download manager doesn't carry the page's cookie. The SDK 
 
 Each SDK's own few words (loading, failure, Try again, Help, Back, unread, downloading) come in `en`, `es`, `fr`,
 `de` and `pt`, following `language`, or the device's language when none is given.
+
+## 7. Unread replies while support is closed
+
+The Help button's badge counts the customer's unread replies even before support opens again: an agent who answers
+while the customer is elsewhere in the app shows as "Help (1)". It costs the company nothing: no support link, no
+session (sessions count toward its plan), no code of its own.
+
+- **The token.** Each time support opens in an app, the page sends an `unread-token` event. The SDK keeps the latest
+  token, its expiry and the support page's origin, across app launches where the platform has storage: `localStorage`
+  on the web, `UserDefaults` on iOS, `SharedPreferences` on Android, `shared_preferences` in Flutter, and in React
+  Native the app's storage when it passes one (otherwise memory, for that launch). A token lasts 30 days and reads that
+  count only.
+- **Asking.** `GET <origin>/api/support/unread` with `Authorization: Bearer <token>`. Any site may ask (the React SDK
+  asks from the company's website); the token is the only credential and no cookie is involved. The answer:
+
+  | Answer | What the SDK does |
+  | --- | --- |
+  | 200 with `{"unread": n}`, `n` a non-negative integer | Shows `n` on the badge (none for 0). |
+  | 401 or 403 | Forgets the token: the badge shows nothing until support opens again. |
+  | Anything else (another status, a bad body, no connection) | Keeps the badge as it was and asks again next time. |
+
+- **When.** When the Help button appears, and when the app comes back to the foreground while the button shows, at
+  most once a minute. Not while support is open (its `unread` events keep the badge current), and not with an expired
+  token (it is forgotten).
+- **Signing out.** Each SDK has a `signOut()` that forgets the token and the badge. An app calls it when its own user
+  signs out, so the next person on the device doesn't see their count. A new token also replaces the old one when
+  someone else opens support.
+- **For an app's own badge** (a tab bar, a menu), each SDK also offers the count as a call, which answers the number
+  or nothing when it isn't known: `getUnreadCount()` (React, React Native), `TicketRackr.unreadCount()` (iOS),
+  `TicketRackr.unreadCount(context, callback)` (Android), `ticketRackrUnreadCount()` (Flutter). Sign-out is
+  `signOut()`, `TicketRackr.signOut()`, `TicketRackr.signOut(context)` and `ticketRackrSignOut()`.
+- **Late answers.** An answer that arrives after the token changed (support handed over a newer one, the app signed
+  out) is about a token that's gone, and changes nothing.

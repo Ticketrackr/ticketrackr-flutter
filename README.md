@@ -64,10 +64,31 @@ TicketRackrSupport(getSupportLink: getSupportLink, closable: true, onClose: () =
 | `getSupportLink` | Required. Calls your endpoint and returns the link's `url`. Called on open, and again if the session ends. |
 | `options: SupportOptions(requestType: …)` | Open the form for one request type, by its key, such as a report: `'report_problem'`. |
 | `options: SupportOptions(subject: …, fields: …)` | Fill in the request's subject and its type's fields (by key). |
+| `options: SupportOptions(ticket: …)` | Open one of the customer's requests, by its id: `ticket.id` from the `ticket.message.created` webhook, for example when the customer taps a notification about a reply. Another customer's request isn't opened; support shows their own requests instead. |
 | `options: SupportOptions(language: …)` | `en`, `es`, `fr`, `de` or `pt`. The device's language when left out. |
 | `onReady`, `onUnreadChange`, `onClose` | `TicketRackrSupport`: support has loaded; the customer's unread replies, whenever the number changes; Close. |
 | `closable` | `TicketRackrSupport`: show a Close button. |
 | `label`, `color`, `onOpenChange` | `SupportButton`: its text (default "Help"), color, and support opening or closing. |
+
+## Unread replies
+
+The Help button's badge counts the customer's unread replies, even while support is closed: an agent who answers
+while the customer is elsewhere in your app shows on the button. It works by itself, with no code of yours, and uses
+no support link or session (sessions count toward your plan). Each time support opens, it hands your app a token that
+reads only that count. The SDK keeps the token on the device (with `shared_preferences`) for 30 days, and the button
+asks TicketRackr with it when it appears and when your app comes back to the foreground, at most once a minute.
+
+For a badge of your own, like a tab bar or a menu, ask for the count when you show it:
+
+```dart
+final unread = await ticketRackrUnreadCount(); // null until support has been opened in the app
+```
+
+When your app's user signs out, forget their badge, so the next person on the device doesn't see their count:
+
+```dart
+await ticketRackrSignOut();
+```
 
 ## Request types and reports
 

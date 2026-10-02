@@ -19,6 +19,7 @@ void main() {
           subject: options['subject'] as String?,
           fields: (options['fields'] as Map<String, dynamic>? ?? {}).cast<String, String>(),
           language: options['language'] as String?,
+          ticket: options['ticket'] as String?,
         ),
         closable: options['closable'] as bool? ?? false,
         edges: options['edges'] as bool? ?? false,
@@ -48,7 +49,9 @@ void main() {
         'ready' => const SupportReady(),
         'close' => const SupportClose(),
         'session-ended' => const SupportSessionEnded(),
-        _ => SupportUnread(expect_!['count'] as int),
+        'unread' => SupportUnread(expect_!['count'] as int),
+        'unread-token' => SupportUnreadToken(expect_!['token'] as String, expect_['expiresAt'] as int),
+        final other => fail('an event this SDK does not know: $other'),
       };
       expect(SupportEvent.read(data), expected, reason: data);
     }
@@ -72,6 +75,47 @@ void main() {
     for (final call in (reconnect['calls'] as List).cast<Map<String, dynamic>>()) {
       expect(guard.allow(call['at'] as int), call['expect'], reason: 'at ${call['at']}');
     }
+  });
+
+  group('unread replies while support is closed', () {
+    final unread = cases['unread'] as Map<String, dynamic>;
+    List<Map<String, dynamic>> unreadList(String key) => (unread[key] as List).cast<Map<String, dynamic>>();
+
+    test('are asked for at the support page with the kept token', () {
+      for (final item in unreadList('requests')) {
+        final request = UnreadRequest(item['origin'] as String, item['token'] as String);
+        final expect_ = item['expect'] as Map<String, dynamic>;
+        expect(request.url.toString(), expect_['url'], reason: item['origin'] as String);
+        expect(request.authorization, expect_['authorization'], reason: item['origin'] as String);
+      }
+    });
+
+    test('show the count, forget the token or keep the badge, by the answer', () {
+      for (final item in unreadList('answers')) {
+        final expect_ = item['expect'] as Map<String, dynamic>;
+        final expected = switch (expect_['result']) {
+          'count' => UnreadCount(expect_['count'] as int),
+          'forget' => const UnreadForget(),
+          'keep' => const UnreadKeep(),
+          final other => fail('an answer this SDK does not know: $other'),
+        };
+        expect(UnreadAnswer.read(item['status'] as int, item['body'] as String), expected, reason: '${item['status']} ${item['body']}');
+      }
+    });
+
+    test('are checked automatically at most once a minute', () {
+      final cases = unread['guard'] as Map<String, dynamic>;
+      final guard = UnreadGuard(intervalMs: cases['intervalMs'] as int);
+      for (final call in (cases['calls'] as List).cast<Map<String, dynamic>>()) {
+        expect(guard.allow(call['at'] as int), call['expect'], reason: 'at ${call['at']}');
+      }
+    });
+
+    test('use a kept token only until it expires', () {
+      for (final item in unreadList('expiry')) {
+        expect(SupportUnreadToken.current(item['expiresAt'] as int, item['now'] as int), item['expect'], reason: 'now ${item['now']}, expires ${item['expiresAt']}');
+      }
+    });
   });
 
   test('words follow the language', () {

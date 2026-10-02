@@ -1,6 +1,6 @@
 // Android: support's files go to the system's downloads (sdks/protocol, section 4). Everything else is Dart.
 group = "com.ticketrackr.support.flutter"
-version = "0.2.0"
+version = "0.3.0"
 
 buildscript {
     val kotlinVersion = "2.4.0"

@@ -3,9 +3,9 @@
 import 'dart:convert';
 import 'dart:ui' show PlatformDispatcher;
 
-/// What to open in support: one request type's form, filled in, in a language.
+/// What to open in support, in a language: one request type's form, filled in, or one of the customer's requests.
 class SupportOptions {
-  const SupportOptions({this.requestType, this.subject, this.fields = const {}, this.language});
+  const SupportOptions({this.requestType, this.subject, this.fields = const {}, this.language, this.ticket});
 
   /// Opens the form for one request type, by its key (Settings → Companies → Case types), such as a report.
   final String? requestType;
@@ -18,6 +18,10 @@ class SupportOptions {
 
   /// `en`, `es`, `fr`, `de` or `pt`. The device's language when left out.
   final String? language;
+
+  /// Opens one of the customer's requests, by its id (`ticket.id` in the ticket.created and ticket.message.created
+  /// webhooks), for example from a push notification about a reply. Another customer's request isn't opened.
+  final String? ticket;
 }
 
 /// A support link that isn't TicketRackr's support page.
@@ -29,6 +33,7 @@ class SupportLinkException implements Exception {
 /// The address support is shown at (sdks/protocol, section 2).
 class SupportAddress {
   static final _fieldKey = RegExp(r'^[a-z][a-z0-9_]{0,63}$');
+  static final _ticketId = RegExp(r'^[A-Za-z0-9_-]{1,128}$');
 
   /// The support link in embedded mode, with what to open. [closable] adds a Close button; [edges] lets the page keep
   /// clear of the status bar and home indicator itself; [load] makes each new link really load.
@@ -46,6 +51,8 @@ class SupportAddress {
       final value = options.fields[key]!;
       params['f.$key'] = value.length > 500 ? value.substring(0, 500) : value;
     }
+    // A request's id, or nothing: anything else is dropped, not sent.
+    if (_ticketId.hasMatch(options.ticket ?? '')) params['ticket'] = options.ticket!;
     return uri.replace(queryParameters: params);
   }
 
@@ -87,15 +94,26 @@ sealed class SupportEvent {
       case 'session-ended':
         return const SupportSessionEnded();
       case 'unread':
-        final count = value['count'];
         // A whole number of zero or more; not text, a fraction or true/false.
-        if (count is int && count >= 0) return SupportUnread(count);
-        if (count is double && count >= 0 && count == count.roundToDouble()) return SupportUnread(count.toInt());
-        return null;
+        final count = _wholeNumber(value['count']);
+        return count != null && count >= 0 ? SupportUnread(count) : null;
+      case 'unread-token':
+        // TicketRackr's token, and when it stops working: a positive whole number of milliseconds since 1970.
+        final token = value['token'];
+        final expiresAt = _wholeNumber(value['expiresAt']);
+        if (token is! String || !SupportUnreadToken.pattern.hasMatch(token) || expiresAt == null || expiresAt <= 0) return null;
+        return SupportUnreadToken(token, expiresAt);
       default:
         return null;
     }
   }
+}
+
+/// A whole number as the page sends one (`2`, or `2.0` from JavaScript), or null for text, a fraction or true/false.
+int? _wholeNumber(Object? value) {
+  if (value is int) return value;
+  if (value is double && value.isFinite && value == value.roundToDouble() && value.abs() <= 9007199254740991) return value.toInt();
+  return null;
 }
 
 /// Support has loaded and signed in.
@@ -133,6 +151,26 @@ class SupportUnread extends SupportEvent {
   bool operator ==(Object other) => other is SupportUnread && other.count == count;
   @override
   int get hashCode => count.hashCode;
+}
+
+/// A token for the Help button's badge while support is closed (sdks/protocol, section 7). It reads that count only.
+class SupportUnreadToken extends SupportEvent {
+  const SupportUnreadToken(this.token, this.expiresAt);
+
+  static final pattern = RegExp(r'^trk_unread_[A-Za-z0-9_-]{43}$');
+
+  final String token;
+
+  /// When it stops working: milliseconds since 1970.
+  final int expiresAt;
+
+  /// Whether a kept token is still used: only before it expires.
+  static bool current(int expiresAt, [int? nowMs]) => (nowMs ?? DateTime.now().millisecondsSinceEpoch) < expiresAt;
+
+  @override
+  bool operator ==(Object other) => other is SupportUnreadToken && other.token == token && other.expiresAt == expiresAt;
+  @override
+  int get hashCode => Object.hash(token, expiresAt);
 }
 
 /// Origins: scheme, host and port, as browsers compare them.
@@ -197,6 +235,83 @@ class ReconnectGuard {
     }
     if (_recent.length >= limit) return false;
     _recent.add(now);
+    return true;
+  }
+}
+
+/// Asking for the customer's unread replies while support is closed (sdks/protocol, section 7): at the support page's
+/// origin, with the token it handed over. The token is the only credential; no cookie is involved.
+class UnreadRequest {
+  UnreadRequest(String origin, String token)
+      : url = Uri.parse('$origin/api/support/unread'),
+        authorization = 'Bearer $token';
+
+  final Uri url;
+
+  /// The `Authorization` header.
+  final String authorization;
+}
+
+/// What an answer to an [UnreadRequest] means (sdks/protocol, section 7).
+sealed class UnreadAnswer {
+  const UnreadAnswer();
+
+  /// The count to show; forget the token (refused); or keep the badge as it was and ask again next time.
+  static UnreadAnswer read(int status, String body) {
+    if (status == 401 || status == 403) return const UnreadForget();
+    if (status != 200) return const UnreadKeep();
+    final Object? value;
+    try {
+      value = jsonDecode(body);
+    } on FormatException {
+      return const UnreadKeep();
+    }
+    final count = value is Map ? _wholeNumber(value['unread']) : null;
+    return count != null && count >= 0 ? UnreadCount(count) : const UnreadKeep();
+  }
+}
+
+/// The customer's unread replies: the badge shows them (none for 0).
+class UnreadCount extends UnreadAnswer {
+  const UnreadCount(this.count);
+  final int count;
+  @override
+  bool operator ==(Object other) => other is UnreadCount && other.count == count;
+  @override
+  int get hashCode => count.hashCode;
+}
+
+/// The token was refused: forget it, and the badge shows nothing until support opens again.
+class UnreadForget extends UnreadAnswer {
+  const UnreadForget();
+  @override
+  bool operator ==(Object other) => other is UnreadForget;
+  @override
+  int get hashCode => 4;
+}
+
+/// Another status, a bad body or no connection: the badge stays as it was.
+class UnreadKeep extends UnreadAnswer {
+  const UnreadKeep();
+  @override
+  bool operator ==(Object other) => other is UnreadKeep;
+  @override
+  int get hashCode => 5;
+}
+
+/// Automatic badge checks (the Help button appearing, the app coming back): at most one a minute, the first always.
+class UnreadGuard {
+  UnreadGuard({this.intervalMs = 60000});
+
+  final int intervalMs;
+  int? _last;
+
+  /// Whether to ask now.
+  bool allow([int? nowMs]) {
+    final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
+    final last = _last;
+    if (last != null && now - last < intervalMs) return false;
+    _last = now;
     return true;
   }
 }

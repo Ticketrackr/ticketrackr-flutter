@@ -11,6 +11,7 @@ import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import 'protocol.dart';
+import 'unread_badge.dart';
 
 const _files = MethodChannel('ticketrackr_support/files');
 
@@ -41,7 +42,7 @@ class TicketRackrSupport extends StatefulWidget {
   /// Gets a new support link from your server.
   final GetSupportLink getSupportLink;
 
-  /// What to open: a request type's form, filled in, in a language.
+  /// What to open, in a language: a request type's form, filled in, or one of the customer's requests.
   final SupportOptions options;
 
   /// Show a Close button, for support on a screen of its own; [onClose] hears it.
@@ -73,6 +74,8 @@ class _TicketRackrSupportState extends State<TicketRackrSupport> {
   @override
   void initState() {
     super.initState();
+    // While support shows, its own events keep the Help button's badge current.
+    UnreadBadge.supportOpened();
     final params = WebViewPlatform.instance is WebKitWebViewPlatform
         ? WebKitWebViewControllerCreationParams(allowsInlineMediaPlayback: true, mediaTypesRequiringUserAction: const <PlaybackMediaTypes>{})
         : const PlatformWebViewControllerCreationParams();
@@ -95,6 +98,12 @@ class _TicketRackrSupportState extends State<TicketRackrSupport> {
       unawaited(platform.setOnShowFileSelector(_chooseFiles));
     }
     unawaited(_open());
+  }
+
+  @override
+  void dispose() {
+    UnreadBadge.supportClosed();
+    super.dispose();
   }
 
   /// Gets a new link and shows it.
@@ -135,7 +144,11 @@ class _TicketRackrSupportState extends State<TicketRackrSupport> {
         _show(loading: false);
         widget.onReady?.call();
       case SupportUnread(:final count):
+        unawaited(UnreadBadge.note(count));
         widget.onUnreadChange?.call(count);
+      case SupportUnreadToken(:final token, :final expiresAt):
+        // Kept for the Help button's badge while support is closed (sdks/protocol, section 7).
+        unawaited(UnreadBadge.keep(origin, token, expiresAt));
       case SupportClose():
         widget.onClose?.call();
       case SupportSessionEnded():
@@ -278,8 +291,9 @@ Future<void> showTicketRackrSupport(
   ));
 }
 
-/// A Help button that opens support on a screen of its own. Its badge counts the replies left unread when support was
-/// last open.
+/// A Help button that opens support on a screen of its own, with a badge for the customer's unread replies. While
+/// support is closed, the badge comes from TicketRackr: when the button appears and when the app comes back to the
+/// foreground, at most once a minute (sdks/protocol, section 7).
 class SupportButton extends StatefulWidget {
   const SupportButton({
     super.key,
@@ -293,7 +307,7 @@ class SupportButton extends StatefulWidget {
   /// Gets a new support link from your server.
   final GetSupportLink getSupportLink;
 
-  /// What to open: a request type's form, filled in, in a language.
+  /// What to open, in a language: a request type's form, filled in, or one of the customer's requests.
   final SupportOptions options;
 
   /// The button's text. "Help", in the support language, when left out.
@@ -309,19 +323,46 @@ class SupportButton extends StatefulWidget {
   State<SupportButton> createState() => _SupportButtonState();
 }
 
-class _SupportButtonState extends State<SupportButton> {
-  int _unread = 0;
+class _SupportButtonState extends State<SupportButton> with WidgetsBindingObserver {
+  int _unread = UnreadBadge.shown.value ?? 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    UnreadBadge.shown.addListener(_showKept);
+    // The last count right away, then TicketRackr's.
+    unawaited(UnreadBadge.last().then((_) => _check()));
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    UnreadBadge.shown.removeListener(_showKept);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_check());
+  }
+
+  /// Asks TicketRackr, through the one guard every Help button shares (and not while support is open).
+  Future<void> _check() async {
+    if (mounted) await UnreadBadge.refresh();
+  }
+
+  /// The count every Help button shows: the last one known.
+  void _showKept() {
+    final count = UnreadBadge.shown.value ?? 0;
+    if (mounted && count != _unread) setState(() => _unread = count);
+  }
 
   Future<void> _open() async {
     widget.onOpenChange?.call(true);
-    await showTicketRackrSupport(
-      context,
-      getSupportLink: widget.getSupportLink,
-      options: widget.options,
-      onUnreadChange: (count) {
-        if (mounted) setState(() => _unread = count);
-      },
-    );
+    await showTicketRackrSupport(context, getSupportLink: widget.getSupportLink, options: widget.options);
+    // What support reported last, kept for the badge until it opens again.
+    _showKept();
     widget.onOpenChange?.call(false);
   }
 
