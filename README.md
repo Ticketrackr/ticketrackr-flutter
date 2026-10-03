@@ -37,6 +37,10 @@ Your key is one from TicketRackr (Settings → Companies → Connect) as `client
 sandbox's test data; a live key, your real customers'. Use your database's id for the customer, not something that
 changes like an email address.
 
+Send the customer's email whenever you have it: support emails them there when it replies, and it's how they get
+back to their requests. Without one, support asks the customer for an email and confirms it with a code before they
+can start a request.
+
 ## 2. Show support
 
 ```dart
